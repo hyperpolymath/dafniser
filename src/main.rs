@@ -1,16 +1,25 @@
 // SPDX-License-Identifier: PMPL-1.0-or-later
 // Copyright (c) 2026 Jonathan D.A. Jewell <j.d.a.jewell@open.ac.uk>
 //
-// dafniser CLI — Generate verified code via Dafny
+// dafniser CLI — Generate correct-by-construction code via Dafny verification.
+// Takes function specifications (pre/postconditions, invariants, decreases
+// clauses) and generates Dafny code that the Z3-based verifier proves correct,
+// then compiles to a target language (C#, Java, Go, Python, JS).
 // Part of the hyperpolymath -iser family. See README.adoc for architecture.
 
 use anyhow::Result;
 use clap::{Parser, Subcommand};
 
+mod abi;
 mod codegen;
 mod manifest;
 
-/// dafniser — Generate verified code via Dafny
+/// dafniser — Generate verified code via Dafny.
+///
+/// Reads function specifications from a dafniser.toml manifest and generates
+/// Dafny source files with requires/ensures/decreases clauses. The Dafny
+/// verifier (Z3 backend) automatically proves correctness. Verified code is
+/// then compiled to the configured target language.
 #[derive(Parser)]
 #[command(name = "dafniser", version, about, long_about = None)]
 struct Cli {
@@ -23,37 +32,46 @@ struct Cli {
 enum Commands {
     /// Initialise a new dafniser.toml manifest in the current directory.
     Init {
+        /// Directory to create the manifest in (defaults to current directory).
         #[arg(short, long, default_value = ".")]
         path: String,
     },
-    /// Validate a dafniser.toml manifest.
+    /// Validate a dafniser.toml manifest for correctness.
     Validate {
+        /// Path to the manifest file.
         #[arg(short, long, default_value = "dafniser.toml")]
         manifest: String,
     },
-    /// Generate Dafny wrapper, Zig FFI bridge, and C headers from the manifest.
+    /// Generate Dafny .dfy files and build commands from the manifest.
     Generate {
+        /// Path to the manifest file.
         #[arg(short, long, default_value = "dafniser.toml")]
         manifest: String,
+        /// Output directory for generated artifacts.
         #[arg(short, long, default_value = "generated/dafniser")]
         output: String,
     },
-    /// Build the generated artifacts.
+    /// Show build plan for the generated Dafny artifacts.
     Build {
+        /// Path to the manifest file.
         #[arg(short, long, default_value = "dafniser.toml")]
         manifest: String,
+        /// Build in release mode.
         #[arg(long)]
         release: bool,
     },
-    /// Run the dafniserd workload.
+    /// Show run plan for the compiled workload.
     Run {
+        /// Path to the manifest file.
         #[arg(short, long, default_value = "dafniser.toml")]
         manifest: String,
+        /// Extra arguments passed to the compiled binary.
         #[arg(trailing_var_arg = true)]
         args: Vec<String>,
     },
-    /// Show information about a manifest.
+    /// Show information about a manifest (functions, targets, contracts).
     Info {
+        /// Path to the manifest file.
         #[arg(short, long, default_value = "dafniser.toml")]
         manifest: String,
     },
@@ -69,7 +87,7 @@ fn main() -> Result<()> {
         Commands::Validate { manifest } => {
             let m = manifest::load_manifest(&manifest)?;
             manifest::validate(&m)?;
-            println!("Manifest valid: {}", m.workload.name);
+            println!("Manifest valid: {}", m.project.name);
         }
         Commands::Generate { manifest, output } => {
             let m = manifest::load_manifest(&manifest)?;
