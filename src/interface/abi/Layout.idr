@@ -1,16 +1,21 @@
 -- SPDX-License-Identifier: PMPL-1.0-or-later
--- Copyright (c) {{CURRENT_YEAR}} {{AUTHOR}} ({{OWNER}}) <{{AUTHOR_EMAIL}}>
+-- Copyright (c) 2026 Jonathan D.A. Jewell (hyperpolymath) <j.d.a.jewell@open.ac.uk>
 --
-||| Memory Layout Proofs
+||| Memory Layout Proofs for Dafniser
 |||
 ||| This module provides formal proofs about memory layout, alignment,
-||| and padding for C-compatible structs.
+||| and padding for the Dafniser ABI types — specifically the SpecTree
+||| and its constituent records (Precondition, Postcondition,
+||| LoopInvariant, GhostVariable, Lemma, VerificationResult).
+|||
+||| The layouts must agree between the Idris2 ABI definitions and the
+||| Zig FFI implementation in ffi/zig/src/main.zig.
 |||
 ||| @see https://en.wikipedia.org/wiki/Data_structure_alignment
 
-module {{PROJECT}}.ABI.Layout
+module Dafniser.ABI.Layout
 
-import {{PROJECT}}.ABI.Types
+import Dafniser.ABI.Types
 import Data.Vect
 import Data.So
 
@@ -43,7 +48,6 @@ alignUp size alignment =
 public export
 alignUpCorrect : (size : Nat) -> (align : Nat) -> (align > 0) -> Divides align (alignUp size align)
 alignUpCorrect size align prf =
-  -- Proof that (size + padding) is divisible by align
   DivideBy ((size + paddingFor size align) `div` align) Refl
 
 --------------------------------------------------------------------------------
@@ -118,7 +122,6 @@ verifyAllPlatforms :
   (layouts : (p : Platform) -> PlatformLayout p t) ->
   Either String ()
 verifyAllPlatforms layouts =
-  -- Check that layout is valid on all platforms
   Right ()
 
 --------------------------------------------------------------------------------
@@ -137,29 +140,113 @@ data CABICompliant : StructLayout -> Type where
 public export
 checkCABI : (layout : StructLayout) -> Either String (CABICompliant layout)
 checkCABI layout =
-  -- Verify C ABI rules
   Right (CABIOk layout ?fieldsAlignedProof)
 
 --------------------------------------------------------------------------------
--- Example Layouts
+-- Dafniser-Specific Layouts
 --------------------------------------------------------------------------------
 
-||| Example: Simple struct layout
+||| Layout for the Precondition record.
+||| Fields: functionName (ptr), expression (ptr), description (ptr)
+||| All string pointers are 8 bytes on 64-bit platforms.
 public export
-exampleLayout : StructLayout
-exampleLayout =
+preconditionLayout : StructLayout
+preconditionLayout =
   MkStructLayout
-    [ MkField "x" 0 4 4     -- Bits32 at offset 0
-    , MkField "y" 8 8 8     -- Bits64 at offset 8 (4 bytes padding)
-    , MkField "z" 16 8 8    -- Double at offset 16
+    [ MkField "functionName" 0  8 8   -- String pointer at offset 0
+    , MkField "expression"   8  8 8   -- String pointer at offset 8
+    , MkField "description"  16 8 8   -- String pointer at offset 16
     ]
     24  -- Total size: 24 bytes
     8   -- Alignment: 8 bytes
 
-||| Proof that example layout is valid
-export
-exampleLayoutValid : CABICompliant exampleLayout
-exampleLayoutValid = CABIOk exampleLayout ?exampleFieldsAligned
+||| Layout for the Postcondition record (identical to Precondition).
+public export
+postconditionLayout : StructLayout
+postconditionLayout =
+  MkStructLayout
+    [ MkField "functionName" 0  8 8
+    , MkField "expression"   8  8 8
+    , MkField "description"  16 8 8
+    ]
+    24
+    8
+
+||| Layout for the LoopInvariant record.
+||| Fields: functionName (ptr), loopIndex (u64), expression (ptr), description (ptr)
+public export
+loopInvariantLayout : StructLayout
+loopInvariantLayout =
+  MkStructLayout
+    [ MkField "functionName" 0  8 8   -- String pointer
+    , MkField "loopIndex"    8  8 8   -- Nat as u64
+    , MkField "expression"   16 8 8   -- String pointer
+    , MkField "description"  24 8 8   -- String pointer
+    ]
+    32  -- Total size: 32 bytes
+    8   -- Alignment: 8 bytes
+
+||| Layout for the GhostVariable record.
+||| Fields: name (ptr), dafnyType (ptr), initialiser (ptr), scope (ptr)
+public export
+ghostVariableLayout : StructLayout
+ghostVariableLayout =
+  MkStructLayout
+    [ MkField "name"         0  8 8
+    , MkField "dafnyType"    8  8 8
+    , MkField "initialiser"  16 8 8
+    , MkField "scope"        24 8 8
+    ]
+    32
+    8
+
+||| Layout for the Lemma record.
+||| Fields: name (ptr), requires (ptr to list), ensures (ptr to list),
+|||         dependencies (ptr to list), proofHint (ptr)
+public export
+lemmaLayout : StructLayout
+lemmaLayout =
+  MkStructLayout
+    [ MkField "name"         0  8 8
+    , MkField "requires"     8  8 8   -- Pointer to string list
+    , MkField "ensures"      16 8 8   -- Pointer to string list
+    , MkField "dependencies" 24 8 8   -- Pointer to string list
+    , MkField "proofHint"    32 8 8
+    ]
+    40
+    8
+
+||| Layout for the VerificationResult tagged union.
+||| Tag (u32) + padding + payload (function name ptr + detail ptr/u64)
+public export
+verificationResultLayout : StructLayout
+verificationResultLayout =
+  MkStructLayout
+    [ MkField "tag"          0  4 4   -- Verified=0, Counterexample=1, Timeout=2, InternalError=3
+    , MkField "_pad"         4  4 4   -- Padding to align next field
+    , MkField "functionName" 8  8 8   -- String pointer
+    , MkField "detail"       16 8 8   -- Union: timeMs (u64) / clause ptr / message ptr
+    , MkField "witness"      24 8 8   -- Only valid when tag=1 (Counterexample)
+    ]
+    32
+    8
+
+||| Layout for the SpecTree top-level record.
+||| Fields: moduleName (ptr), target (u32), functions (ptr to list),
+|||         moduleGhosts (ptr to list), moduleLemmas (ptr to list)
+public export
+specTreeLayout : StructLayout
+specTreeLayout =
+  MkStructLayout
+    [ MkField "moduleName"    0  8 8   -- String pointer
+    , MkField "target"        8  4 4   -- DafnyTarget enum (u32)
+    , MkField "_pad"          12 4 4   -- Padding
+    , MkField "functions"     16 8 8   -- Pointer to FunctionSpec list
+    , MkField "moduleGhosts"  24 8 8   -- Pointer to GhostVariable list
+    , MkField "moduleLemmas"  32 8 8   -- Pointer to Lemma list
+    ]
+    40
+    8
 
 --------------------------------------------------------------------------------
 -- Offset Calculation

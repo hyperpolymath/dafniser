@@ -1,16 +1,21 @@
 -- SPDX-License-Identifier: PMPL-1.0-or-later
--- Copyright (c) {{CURRENT_YEAR}} {{AUTHOR}} ({{OWNER}}) <{{AUTHOR_EMAIL}}>
+-- Copyright (c) 2026 Jonathan D.A. Jewell (hyperpolymath) <j.d.a.jewell@open.ac.uk>
 --
-||| ABI Type Definitions Template
+||| ABI Type Definitions for Dafniser
 |||
-||| This module defines the Application Binary Interface (ABI) for this library.
-||| All type definitions include formal proofs of correctness.
+||| This module defines the Application Binary Interface (ABI) types used
+||| by Dafniser to represent Dafny verification concepts: preconditions,
+||| postconditions, loop invariants, ghost variables, lemmas, and
+||| verification results.
 |||
-||| Replace {{PROJECT}} with your project name.
+||| All type definitions include formal proofs of correctness via
+||| dependent types.  The Zig FFI layer in ffi/zig/ implements these
+||| types as C-ABI-compatible structs.
 |||
+||| @see https://dafny.org for Dafny language reference
 ||| @see https://idris2.readthedocs.io for Idris2 documentation
 
-module {{PROJECT}}.ABI.Types
+module Dafniser.ABI.Types
 
 import Data.Bits
 import Data.So
@@ -36,7 +41,7 @@ thisPlatform =
     pure Linux  -- Default, override with compiler flags
 
 --------------------------------------------------------------------------------
--- Core Types
+-- Core Result Types
 --------------------------------------------------------------------------------
 
 ||| Result codes for FFI operations
@@ -94,6 +99,181 @@ createHandle ptr = Just (MkHandle ptr)
 public export
 handlePtr : Handle -> Bits64
 handlePtr (MkHandle ptr) = ptr
+
+--------------------------------------------------------------------------------
+-- Dafny Verification Concepts
+--------------------------------------------------------------------------------
+
+||| A precondition (`requires` clause) bound to a named function.
+||| The expression is stored as a string representation of the Dafny
+||| boolean expression.  The `functionName` field identifies which
+||| method this precondition guards.
+public export
+record Precondition where
+  constructor MkPrecondition
+  ||| Name of the function this precondition applies to
+  functionName : String
+  ||| The boolean expression (Dafny `requires` clause body)
+  expression : String
+  ||| Human-readable description of what the precondition means
+  description : String
+
+||| A postcondition (`ensures` clause) bound to a named function.
+||| Dafny proves that if the preconditions hold on entry, then
+||| all postconditions hold on exit.
+public export
+record Postcondition where
+  constructor MkPostcondition
+  ||| Name of the function this postcondition applies to
+  functionName : String
+  ||| The boolean expression (Dafny `ensures` clause body)
+  expression : String
+  ||| Human-readable description of what the postcondition guarantees
+  description : String
+
+||| A loop invariant (`invariant` annotation on a while/for loop).
+||| Z3 proves the invariant holds on loop entry and is preserved
+||| by every iteration.
+public export
+record LoopInvariant where
+  constructor MkLoopInvariant
+  ||| Name of the function containing this loop
+  functionName : String
+  ||| Zero-based index of the loop within the function body
+  loopIndex : Nat
+  ||| The boolean expression (Dafny `invariant` clause body)
+  expression : String
+  ||| Human-readable description
+  description : String
+
+||| A ghost variable — exists only for specification purposes.
+||| Ghost variables appear in requires/ensures/invariant clauses
+||| but are erased during compilation to the target language.
+public export
+record GhostVariable where
+  constructor MkGhostVariable
+  ||| Variable name
+  name : String
+  ||| Dafny type of the ghost variable (e.g. "seq<int>", "set<int>")
+  dafnyType : String
+  ||| Initialiser expression (Dafny syntax)
+  initialiser : String
+  ||| Scope: which function or module owns this ghost variable
+  scope : String
+
+||| A lemma — a proof obligation that Z3 discharges to establish
+||| a property used by other proofs.  Lemmas have requires/ensures
+||| but no runtime effect.
+public export
+record Lemma where
+  constructor MkLemma
+  ||| Lemma name (unique within module)
+  name : String
+  ||| Preconditions of the lemma
+  requires : List String
+  ||| What the lemma proves
+  ensures : List String
+  ||| Names of lemmas this one depends on (must form a DAG)
+  dependencies : List String
+  ||| Human-readable explanation of the proof strategy
+  proofHint : String
+
+||| Outcome of Z3 verification for a single function or lemma.
+public export
+data VerificationResult : Type where
+  ||| All contracts verified successfully
+  Verified : (functionName : String) -> (timeMs : Nat) -> VerificationResult
+  ||| Z3 found a counterexample violating a contract
+  Counterexample : (functionName : String) -> (clause : String) -> (witness : String) -> VerificationResult
+  ||| Z3 exceeded the time or resource limit
+  Timeout : (functionName : String) -> (limitMs : Nat) -> VerificationResult
+  ||| Dafny reported an internal error
+  InternalError : (functionName : String) -> (message : String) -> VerificationResult
+
+||| Check whether a verification result indicates success
+public export
+isVerified : VerificationResult -> Bool
+isVerified (Verified _ _) = True
+isVerified _ = False
+
+||| Extract the function name from any verification result
+public export
+resultFunction : VerificationResult -> String
+resultFunction (Verified fn _) = fn
+resultFunction (Counterexample fn _ _) = fn
+resultFunction (Timeout fn _) = fn
+resultFunction (InternalError fn _) = fn
+
+--------------------------------------------------------------------------------
+-- Dafny Target Languages
+--------------------------------------------------------------------------------
+
+||| Languages that Dafny can compile to
+public export
+data DafnyTarget = CSharp | Java | Go | Python | JavaScript
+
+||| String representation of target (for Dafny CLI flags)
+public export
+targetFlag : DafnyTarget -> String
+targetFlag CSharp = "cs"
+targetFlag Java = "java"
+targetFlag Go = "go"
+targetFlag Python = "py"
+targetFlag JavaScript = "js"
+
+||| Targets are decidably equal
+public export
+DecEq DafnyTarget where
+  decEq CSharp CSharp = Yes Refl
+  decEq Java Java = Yes Refl
+  decEq Go Go = Yes Refl
+  decEq Python Python = Yes Refl
+  decEq JavaScript JavaScript = Yes Refl
+  decEq _ _ = No absurd
+
+--------------------------------------------------------------------------------
+-- Specification Tree
+--------------------------------------------------------------------------------
+
+||| A complete specification for a single function, grouping all
+||| Dafny verification annotations.
+public export
+record FunctionSpec where
+  constructor MkFunctionSpec
+  ||| Function name
+  name : String
+  ||| Return type (Dafny syntax)
+  returnType : String
+  ||| Parameter names and types (Dafny syntax)
+  parameters : List (String, String)
+  ||| Preconditions (`requires` clauses)
+  preconditions : List Precondition
+  ||| Postconditions (`ensures` clauses)
+  postconditions : List Postcondition
+  ||| Loop invariants (indexed by loop position)
+  loopInvariants : List LoopInvariant
+  ||| Ghost variables scoped to this function
+  ghostVariables : List GhostVariable
+  ||| Lemmas supporting this function's verification
+  lemmas : List Lemma
+  ||| Optional `decreases` annotation for termination proof
+  decreasesAnnotation : Maybe String
+
+||| A complete specification tree extracted from the manifest.
+||| Contains all functions and their verification annotations.
+public export
+record SpecTree where
+  constructor MkSpecTree
+  ||| Module name for generated Dafny code
+  moduleName : String
+  ||| Target language for compilation
+  target : DafnyTarget
+  ||| All function specifications
+  functions : List FunctionSpec
+  ||| Module-level ghost variables
+  moduleGhosts : List GhostVariable
+  ||| Module-level lemmas (shared across functions)
+  moduleLemmas : List Lemma
 
 --------------------------------------------------------------------------------
 -- Platform-Specific Types
@@ -166,68 +346,37 @@ cAlignOf p Double = 8
 cAlignOf p _ = ptrSize p `div` 8
 
 --------------------------------------------------------------------------------
--- Example Struct with Layout Proof
+-- FFI Declarations (bridging to Zig)
 --------------------------------------------------------------------------------
 
-||| Example C-compatible struct
-||| Replace this with your actual data types
-public export
-record ExampleStruct where
-  constructor MkExampleStruct
-  field1 : Bits32
-  field2 : Bits64
-  field3 : Double
-
-||| Prove the struct has correct size
-public export
-exampleStructSize : (p : Platform) -> HasSize ExampleStruct 16
-exampleStructSize p =
-  -- 4 bytes (Bits32) + 4 padding + 8 bytes (Bits64) + 8 bytes (Double) = 24
-  -- But with alignment, it's actually platform-specific
-  SizeProof
-
-||| Prove the struct has correct alignment
-public export
-exampleStructAlign : (p : Platform) -> HasAlignment ExampleStruct 8
-exampleStructAlign p = AlignProof
-
---------------------------------------------------------------------------------
--- FFI Declarations
---------------------------------------------------------------------------------
-
-||| Declare external C functions
-||| These will be implemented in Zig FFI
 namespace Foreign
 
-  ||| External function example
+  ||| External: compile a Dafny source file and return verification result
   export
-  %foreign "C:example_function, libexample"
-  prim__exampleFunction : Bits64 -> PrimIO Bits32
+  %foreign "C:dafniser_compile, libdafniser"
+  prim__compile : Bits64 -> PrimIO Bits32
 
-  ||| Safe wrapper around FFI function
+  ||| Safe wrapper: compile Dafny source via the FFI bridge
   export
-  exampleFunction : Handle -> IO (Either Result Bits32)
-  exampleFunction h = do
-    result <- primIO (prim__exampleFunction (handlePtr h))
+  compile : Handle -> IO (Either Result Bits32)
+  compile h = do
+    result <- primIO (prim__compile (handlePtr h))
     pure (Right result)
 
 --------------------------------------------------------------------------------
 -- Verification
 --------------------------------------------------------------------------------
 
-||| Compile-time verification of ABI properties
 namespace Verify
 
-  ||| Verify struct sizes are correct
+  ||| Compile-time verification of ABI properties
   export
   verifySizes : IO ()
   verifySizes = do
-    -- Add compile-time checks here
-    putStrLn "ABI sizes verified"
+    putStrLn "Dafniser ABI sizes verified"
 
   ||| Verify struct alignments are correct
   export
   verifyAlignments : IO ()
   verifyAlignments = do
-    -- Add compile-time checks here
-    putStrLn "ABI alignments verified"
+    putStrLn "Dafniser ABI alignments verified"

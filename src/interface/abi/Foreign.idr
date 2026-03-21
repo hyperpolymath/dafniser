@@ -1,18 +1,22 @@
 -- SPDX-License-Identifier: PMPL-1.0-or-later
--- Copyright (c) {{CURRENT_YEAR}} {{AUTHOR}} ({{OWNER}}) <{{AUTHOR_EMAIL}}>
+-- Copyright (c) 2026 Jonathan D.A. Jewell (hyperpolymath) <j.d.a.jewell@open.ac.uk>
 --
-||| Foreign Function Interface Declarations
+||| Foreign Function Interface Declarations for Dafniser
 |||
 ||| This module declares all C-compatible functions that will be
-||| implemented in the Zig FFI layer.
+||| implemented in the Zig FFI layer (ffi/zig/src/main.zig).
+|||
+||| The FFI surface covers two domains:
+|||   1. Library lifecycle (init, free, version)
+|||   2. Dafny compilation and Z3 verification pipeline
 |||
 ||| All functions are declared here with type signatures and safety proofs.
-||| Implementations live in ffi/zig/
+||| Implementations live in src/interface/ffi/
 
-module {{PROJECT}}.ABI.Foreign
+module Dafniser.ABI.Foreign
 
-import {{PROJECT}}.ABI.Types
-import {{PROJECT}}.ABI.Layout
+import Dafniser.ABI.Types
+import Dafniser.ABI.Layout
 
 %default total
 
@@ -20,10 +24,10 @@ import {{PROJECT}}.ABI.Layout
 -- Library Lifecycle
 --------------------------------------------------------------------------------
 
-||| Initialize the library
-||| Returns a handle to the library instance, or Nothing on failure
+||| Initialize the dafniser library.
+||| Returns a handle to the library instance, or Nothing on failure.
 export
-%foreign "C:{{project}}_init, lib{{project}}"
+%foreign "C:dafniser_init, libdafniser"
 prim__init : PrimIO Bits64
 
 ||| Safe wrapper for library initialization
@@ -33,9 +37,9 @@ init = do
   ptr <- primIO prim__init
   pure (createHandle ptr)
 
-||| Clean up library resources
+||| Clean up dafniser library resources.
 export
-%foreign "C:{{project}}_free, lib{{project}}"
+%foreign "C:dafniser_free, libdafniser"
 prim__free : Bits64 -> PrimIO ()
 
 ||| Safe wrapper for cleanup
@@ -44,22 +48,122 @@ free : Handle -> IO ()
 free h = primIO (prim__free (handlePtr h))
 
 --------------------------------------------------------------------------------
--- Core Operations
+-- Specification Loading
 --------------------------------------------------------------------------------
 
-||| Example operation: process data
+||| Load a specification tree from a TOML manifest file.
+||| The path is a null-terminated C string.
+||| Returns a handle to the parsed SpecTree, or null on parse failure.
 export
-%foreign "C:{{project}}_process, lib{{project}}"
-prim__process : Bits64 -> Bits32 -> PrimIO Bits32
+%foreign "C:dafniser_load_spec, libdafniser"
+prim__loadSpec : Bits64 -> Bits64 -> PrimIO Bits64
 
-||| Safe wrapper with error handling
+||| Safe wrapper: load a spec tree from a manifest path.
 export
-process : Handle -> Bits32 -> IO (Either Result Bits32)
-process h input = do
-  result <- primIO (prim__process (handlePtr h) input)
+loadSpec : Handle -> (manifestPath : Bits64) -> IO (Maybe Handle)
+loadSpec h path = do
+  ptr <- primIO (prim__loadSpec (handlePtr h) path)
+  pure (createHandle ptr)
+
+||| Free a previously loaded spec tree.
+export
+%foreign "C:dafniser_free_spec, libdafniser"
+prim__freeSpec : Bits64 -> PrimIO ()
+
+||| Safe wrapper: release spec tree resources.
+export
+freeSpec : Handle -> IO ()
+freeSpec h = primIO (prim__freeSpec (handlePtr h))
+
+--------------------------------------------------------------------------------
+-- Dafny Code Generation
+--------------------------------------------------------------------------------
+
+||| Generate Dafny source code from a loaded spec tree.
+||| Writes .dfy files to the output directory (null-terminated C string).
+||| Returns 0 on success, non-zero on failure.
+export
+%foreign "C:dafniser_generate_dafny, libdafniser"
+prim__generateDafny : Bits64 -> Bits64 -> PrimIO Bits32
+
+||| Safe wrapper: generate Dafny source from a spec tree.
+export
+generateDafny : Handle -> (outputDir : Bits64) -> IO (Either Result ())
+generateDafny h outDir = do
+  result <- primIO (prim__generateDafny (handlePtr h) outDir)
   pure $ case result of
-    0 => Left Error
-    n => Right n
+    0 => Right ()
+    _ => Left Error
+
+--------------------------------------------------------------------------------
+-- Z3 Verification
+--------------------------------------------------------------------------------
+
+||| Invoke the Dafny verifier (Z3 backend) on generated .dfy files.
+||| Returns a handle to the verification results, or null on failure.
+export
+%foreign "C:dafniser_verify, libdafniser"
+prim__verify : Bits64 -> Bits64 -> PrimIO Bits64
+
+||| Safe wrapper: run Z3 verification on generated Dafny source.
+export
+verify : Handle -> (dafnyDir : Bits64) -> IO (Maybe Handle)
+verify h dir = do
+  ptr <- primIO (prim__verify (handlePtr h) dir)
+  pure (createHandle ptr)
+
+||| Query the number of verification results.
+export
+%foreign "C:dafniser_result_count, libdafniser"
+prim__resultCount : Bits64 -> PrimIO Bits32
+
+||| Safe wrapper: how many functions were verified?
+export
+resultCount : Handle -> IO Bits32
+resultCount h = primIO (prim__resultCount (handlePtr h))
+
+||| Query the verification status of a specific function by index.
+||| Returns the tag: 0=Verified, 1=Counterexample, 2=Timeout, 3=InternalError
+export
+%foreign "C:dafniser_result_status, libdafniser"
+prim__resultStatus : Bits64 -> Bits32 -> PrimIO Bits32
+
+||| Safe wrapper: get verification status for function at index.
+export
+resultStatus : Handle -> (index : Bits32) -> IO Bits32
+resultStatus h idx = primIO (prim__resultStatus (handlePtr h) idx)
+
+||| Get the counterexample witness string for a failed verification.
+||| Returns null if the result at the given index is not a Counterexample.
+export
+%foreign "C:dafniser_result_witness, libdafniser"
+prim__resultWitness : Bits64 -> Bits32 -> PrimIO Bits64
+
+--------------------------------------------------------------------------------
+-- Target Language Compilation
+--------------------------------------------------------------------------------
+
+||| Compile verified Dafny to a target language.
+||| The target is an integer: 0=C#, 1=Java, 2=Go, 3=Python, 4=JavaScript
+||| Returns 0 on success, non-zero on failure.
+export
+%foreign "C:dafniser_compile_target, libdafniser"
+prim__compileTarget : Bits64 -> Bits64 -> Bits32 -> PrimIO Bits32
+
+||| Safe wrapper: compile verified Dafny to a target language.
+export
+compileTarget : Handle -> (dafnyDir : Bits64) -> DafnyTarget -> IO (Either Result ())
+compileTarget h dir target = do
+  let targetInt = case target of
+        CSharp     => 0
+        Java       => 1
+        Go         => 2
+        Python     => 3
+        JavaScript => 4
+  result <- primIO (prim__compileTarget (handlePtr h) dir targetInt)
+  pure $ case result of
+    0 => Right ()
+    _ => Left Error
 
 --------------------------------------------------------------------------------
 -- String Operations
@@ -70,14 +174,14 @@ export
 %foreign "support:idris2_getString, libidris2_support"
 prim__getString : Bits64 -> String
 
-||| Free C string
+||| Free a C string allocated by the library
 export
-%foreign "C:{{project}}_free_string, lib{{project}}"
+%foreign "C:dafniser_free_string, libdafniser"
 prim__freeString : Bits64 -> PrimIO ()
 
-||| Get string result from library
+||| Get a string result from the library
 export
-%foreign "C:{{project}}_get_string, lib{{project}}"
+%foreign "C:dafniser_get_string, libdafniser"
 prim__getResult : Bits64 -> PrimIO Bits64
 
 ||| Safe string getter
@@ -93,39 +197,12 @@ getString h = do
       pure (Just str)
 
 --------------------------------------------------------------------------------
--- Array/Buffer Operations
---------------------------------------------------------------------------------
-
-||| Process array data
-export
-%foreign "C:{{project}}_process_array, lib{{project}}"
-prim__processArray : Bits64 -> Bits64 -> Bits32 -> PrimIO Bits32
-
-||| Safe array processor
-export
-processArray : Handle -> (buffer : Bits64) -> (len : Bits32) -> IO (Either Result ())
-processArray h buf len = do
-  result <- primIO (prim__processArray (handlePtr h) buf len)
-  pure $ case resultFromInt result of
-    Just Ok => Right ()
-    Just err => Left err
-    Nothing => Left Error
-  where
-    resultFromInt : Bits32 -> Maybe Result
-    resultFromInt 0 = Just Ok
-    resultFromInt 1 = Just Error
-    resultFromInt 2 = Just InvalidParam
-    resultFromInt 3 = Just OutOfMemory
-    resultFromInt 4 = Just NullPointer
-    resultFromInt _ = Nothing
-
---------------------------------------------------------------------------------
 -- Error Handling
 --------------------------------------------------------------------------------
 
 ||| Get last error message
 export
-%foreign "C:{{project}}_last_error, lib{{project}}"
+%foreign "C:dafniser_last_error, libdafniser"
 prim__lastError : PrimIO Bits64
 
 ||| Retrieve last error as string
@@ -152,7 +229,7 @@ errorDescription NullPointer = "Null pointer"
 
 ||| Get library version
 export
-%foreign "C:{{project}}_version, lib{{project}}"
+%foreign "C:dafniser_version, libdafniser"
 prim__version : PrimIO Bits64
 
 ||| Get version as string
@@ -164,7 +241,7 @@ version = do
 
 ||| Get library build info
 export
-%foreign "C:{{project}}_build_info, lib{{project}}"
+%foreign "C:dafniser_build_info, libdafniser"
 prim__buildInfo : PrimIO Bits64
 
 ||| Get build information
@@ -175,31 +252,12 @@ buildInfo = do
   pure (prim__getString ptr)
 
 --------------------------------------------------------------------------------
--- Callback Support
---------------------------------------------------------------------------------
-
-||| Callback function type (C ABI)
-public export
-Callback : Type
-Callback = Bits64 -> Bits32 -> Bits32
-
-||| Register a callback
-export
-%foreign "C:{{project}}_register_callback, lib{{project}}"
-prim__registerCallback : Bits64 -> AnyPtr -> PrimIO Bits32
-
--- TODO: Implement safe callback registration.
--- The callback must be wrapped via a proper FFI callback mechanism.
--- Do NOT use cast — it is banned per project safety standards.
--- See: https://idris2.readthedocs.io/en/latest/ffi/ffi.html#callbacks
-
---------------------------------------------------------------------------------
 -- Utility Functions
 --------------------------------------------------------------------------------
 
 ||| Check if library is initialized
 export
-%foreign "C:{{project}}_is_initialized, lib{{project}}"
+%foreign "C:dafniser_is_initialized, libdafniser"
 prim__isInitialized : Bits64 -> PrimIO Bits32
 
 ||| Check initialization status

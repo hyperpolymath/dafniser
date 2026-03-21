@@ -1,19 +1,29 @@
-# ⚠️ STOP - CRITICAL READING REQUIRED
+# SPDX-License-Identifier: PMPL-1.0-or-later
+# Copyright (c) 2026 Jonathan D.A. Jewell (hyperpolymath) <j.d.a.jewell@open.ac.uk>
+#
+# 0-AI-MANIFEST.a2ml — Universal AI agent entry point for dafniser
+
+# STOP - CRITICAL READING REQUIRED
 
 **THIS FILE MUST BE READ FIRST BY ALL AI AGENTS**
 
 ## WHAT IS THIS?
 
-This is the AI manifest for **[YOUR-REPO-NAME]**. It declares:
-- Canonical file locations (where things MUST be, and nowhere else)
-- Critical invariants (rules that must NEVER be violated)
-- Repository structure and organization
+This is the AI manifest for **dafniser** — a tool that generates
+correct-by-construction code for critical functions using Dafny.
+
+Dafniser takes function specifications (pre/postconditions, loop invariants,
+ghost variables, lemma hints) from a TOML manifest, generates Dafny source
+with `requires`/`ensures`/`invariant`/`decreases` annotations, verifies
+them via Z3, and compiles to C#, Java, Go, Python, or JavaScript.
+
+Part of the hyperpolymath -iser family (https://github.com/hyperpolymath/iseriser).
 
 ## CANONICAL LOCATIONS (UNIVERSAL RULE)
 
 ### Machine-Readable Metadata: `.machine_readable/` ONLY
 
-These 6 a2ml files MUST exist in `.machine_readable/` directory ONLY:
+These 6 a2ml files MUST exist in `.machine_readable/6a2/` directory ONLY:
 1. **STATE.a2ml** - Project state, progress, blockers
 2. **META.a2ml** - Architecture decisions, governance
 3. **ECOSYSTEM.a2ml** - Position in ecosystem, relationships
@@ -55,7 +65,7 @@ Policy enforcement contracts (k9, dust, lust, must, trust).
 ### AI Configuration & Guides: `.machine_readable/ai/` ONLY
 
 - `AI.a2ml` - Language-specific or LLM-specific patterns
-- `PLACEHOLDERS.md` - Bootstrap guide
+- `PLACEHOLDERS.adoc` - Bootstrap guide
 
 ### Community & Forge Metadata: `.github/` ONLY
 
@@ -70,6 +80,40 @@ Policy enforcement contracts (k9, dust, lust, must, trust).
 
 - `0-AI-MANIFEST.a2ml` - THIS FILE (universal entry point)
 
+## REPOSITORY STRUCTURE
+
+```
+dafniser/
+├── 0-AI-MANIFEST.a2ml         # THIS FILE (start here)
+├── README.adoc                 # What dafniser does and why
+├── ROADMAP.adoc                # Phase 0-6 roadmap
+├── CONTRIBUTING.adoc           # Human contribution guide
+├── Justfile                    # Task runner
+├── Containerfile               # OCI build (Chainguard base)
+├── Cargo.toml                  # Rust CLI dependencies
+├── LICENSE                     # PMPL-1.0-or-later
+├── src/
+│   ├── main.rs                 # CLI entry point (init/validate/generate/build/run/info)
+│   ├── lib.rs                  # Library API
+│   ├── manifest/               # TOML manifest parser and spec extraction
+│   ├── codegen/                # Dafny source generation with verification annotations
+│   └── interface/              # Verified Interface Seams
+│       ├── abi/                # Idris2 ABI (Types, Layout, Foreign)
+│       │   ├── Types.idr       # Precondition, Postcondition, LoopInvariant,
+│       │   │                   # GhostVariable, Lemma, VerificationResult, SpecTree
+│       │   ├── Layout.idr      # Memory layout proofs for ABI types
+│       │   └── Foreign.idr     # FFI declarations (Dafny compile, Z3 verify, target compile)
+│       ├── ffi/                # Zig FFI (The Bridge)
+│       │   ├── build.zig       # Build config (shared + static libs)
+│       │   ├── src/main.zig    # C-ABI implementation of Foreign.idr
+│       │   └── test/           # Integration tests
+│       └── generated/          # C Headers (auto-generated from Idris2 ABI)
+├── docs/
+│   └── architecture/
+│       └── TOPOLOGY.md         # Module topology and data flow diagram
+└── .machine_readable/          # ALL machine-readable metadata (6a2/ subdirectory)
+```
+
 ## CORE INVARIANTS
 
 1. **No state file duplication** - Root must NOT contain STATE.a2ml, META.a2ml, etc.
@@ -80,42 +124,16 @@ Policy enforcement contracts (k9, dust, lust, must, trust).
 6. **Container images** - MUST use Chainguard base (`cgr.dev/chainguard/wolfi-base:latest` or `cgr.dev/chainguard/static:latest`)
 7. **Container runtime** - Podman, never Docker. Files are `Containerfile`, never `Dockerfile`
 8. **Container orchestration** - `selur-compose`, never `docker-compose`
-
-## REPOSITORY STRUCTURE
-
-This repo follows the **Dual-Track** architecture:
-
-```
-[YOUR-REPO-NAME]/
-├── 0-AI-MANIFEST.a2ml         # THIS FILE (start here)
-├── README.adoc                 # High-level orientation (Rich Human)
-├── ROADMAP.adoc                # Future direction
-├── CONTRIBUTING.adoc           # Human contribution guide
-├── GOVERNANCE.adoc             # Decision-making model
-├── Justfile                    # Task runner
-├── Containerfile               # OCI build
-├── LICENSE                     # Primary license
-├── src/                        # Source code
-│   └── interface/              # Verified Interface Seams
-│       ├── abi/                # Idris2 ABI (The Spec)
-│       ├── ffi/                # Zig FFI (The Bridge)
-│       └── generated/          # C Headers (The Result)
-├── container/                  # Stapeln container ecosystem
-├── docs/                       # Technical depths
-│   ├── attribution/            # Citations, owners, maintainers (adoc)
-│   ├── architecture/           # Topology, diagrams
-│   ├── theory/                 # Domain theory
-│   └── practice/               # Manuals
-├── docs/legal/                  # Legal exhibits and full texts
-└── .machine_readable/          # ALL machine-readable metadata
-```
+9. **Dafny pipeline order** - Always: parse spec -> meta-prove (Idris2) -> generate .dfy -> verify (Z3) -> compile target
+10. **No manual Dafny** - Users never write Dafny; dafniser generates everything from TOML specs
 
 ## SESSION STARTUP CHECKLIST
 
-✅ Read THIS file (0-AI-MANIFEST.a2ml) first
-✅ Understand canonical location: `.machine_readable/`
-✅ State understanding of canonical locations
+1. Read THIS file (0-AI-MANIFEST.a2ml) first
+2. Understand canonical location: `.machine_readable/`
+3. Read `.machine_readable/6a2/STATE.a2ml` for current project state
+4. State understanding of canonical locations
 
 ## ATTESTATION PROOF
 
-**"I have read the AI manifest. All machine-readable content (state files, anchors, policies, bot directives, contractiles, AI guides) is located in `.machine_readable/` ONLY, and community metadata is in `.github/`. I will not create duplicate files in the root directory."**
+**"I have read the AI manifest for dafniser. All machine-readable content (state files, anchors, policies, bot directives, contractiles, AI guides) is located in `.machine_readable/` ONLY, and community metadata is in `.github/`. I will not create duplicate files in the root directory."**

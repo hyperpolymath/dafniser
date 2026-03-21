@@ -6,12 +6,13 @@
   (version "0.1.0")
   (name "dafniser")
   (type "tool")
-  (purpose "Generate correct-by-construction code using Dafny")
+  (purpose "Generate correct-by-construction code for critical functions using Dafny verification and Z3 SMT solving — sorting, searching, crypto, consensus, financial algorithms")
 
   (position-in-ecosystem
     (family "-iser acceleration frameworks")
     (meta-framework "iseriser")
     (relationship "sibling")
+    (niche "Formal verification via Dafny/Z3 — proves code satisfies pre/postconditions, loop invariants, and termination")
     (top-3 ("typedqliser" "chapeliser" "verisimiser")))
 
   (related-projects
@@ -32,7 +33,13 @@
       (description "Database recovery via constraint propagation"))
     (project "proven"
       (relationship "dependency")
-      (description "Shared Idris2 verified library"))
+      (description "Shared Idris2 verified library — dafniser may use proven lemmas"))
     (project "typell"
       (relationship "dependency")
-      (description "Type theory engine"))))
+      (description "Type theory engine — potential source of type-level spec validation"))
+    (project "halideiser"
+      (relationship "sibling")
+      (description "Halide image processing acceleration — shares -iser architecture"))
+    (project "futharkiser"
+      (relationship "sibling")
+      (description "Futhark GPU acceleration — shares -iser architecture"))))
