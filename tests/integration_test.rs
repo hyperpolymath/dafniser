@@ -77,9 +77,11 @@ fn test_binary_search_spec() {
 
     // Postconditions.
     assert_eq!(binary_search.postconditions.len(), 1);
-    assert!(binary_search.postconditions[0]
-        .expression
-        .contains("arr[result] == key"));
+    assert!(
+        binary_search.postconditions[0]
+            .expression
+            .contains("arr[result] == key")
+    );
 
     // Decreases clause.
     assert!(binary_search.decreases.is_some());
@@ -106,12 +108,16 @@ fn test_insertion_sort_spec() {
     assert_eq!(insertion_sort.returns.dafny_type, "seq<int>");
 
     // Postcondition should reference sorted and multiset.
-    assert!(insertion_sort.postconditions[0]
-        .expression
-        .contains("sorted(result)"));
-    assert!(insertion_sort.postconditions[0]
-        .expression
-        .contains("multiset(result) == multiset(arr)"));
+    assert!(
+        insertion_sort.postconditions[0]
+            .expression
+            .contains("sorted(result)")
+    );
+    assert!(
+        insertion_sort.postconditions[0]
+            .expression
+            .contains("multiset(result) == multiset(arr)")
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -186,9 +192,8 @@ fn test_all_targets_valid() {
         ("javascript", TargetLanguage::Js),
     ];
     for (input, expected) in cases {
-        let result = parser::parse_target(input).unwrap_or_else(|_| {
-            panic!("parse_target('{}') should succeed", input)
-        });
+        let result = parser::parse_target(input)
+            .unwrap_or_else(|_| panic!("parse_target('{}') should succeed", input));
         assert_eq!(result, expected, "parse_target('{}') mismatch", input);
     }
 }

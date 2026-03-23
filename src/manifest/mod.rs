@@ -136,8 +136,7 @@ fn default_verify_timeout() -> u32 {
 pub fn load_manifest(path: &str) -> Result<Manifest> {
     let content = std::fs::read_to_string(path)
         .with_context(|| format!("Failed to read manifest: {}", path))?;
-    toml::from_str(&content)
-        .with_context(|| format!("Failed to parse manifest: {}", path))
+    toml::from_str(&content).with_context(|| format!("Failed to parse manifest: {}", path))
 }
 
 /// Validate a parsed manifest for required fields and consistency.
@@ -215,7 +214,12 @@ pub fn print_info(manifest: &Manifest) {
             .iter()
             .map(|p| format!("{}: {}", p.name, p.param_type))
             .collect();
-        println!("  {} ({}) -> {}", func.name, param_list.join(", "), func.returns.return_type);
+        println!(
+            "  {} ({}) -> {}",
+            func.name,
+            param_list.join(", "),
+            func.returns.return_type
+        );
         if let Some(dec) = &func.decreases {
             println!("    decreases {}", dec);
         }

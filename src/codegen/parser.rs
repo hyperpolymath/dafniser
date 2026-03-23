@@ -7,8 +7,8 @@
 use anyhow::Result;
 
 use crate::abi::{
-    DafnyFunction, DafnyModule, DafnyParam, DafnyReturn, DecreasesClause,
-    Postcondition, Precondition, TargetLanguage,
+    DafnyFunction, DafnyModule, DafnyParam, DafnyReturn, DecreasesClause, Postcondition,
+    Precondition, TargetLanguage,
 };
 use crate::manifest::{FunctionSpec, Manifest};
 
@@ -93,7 +93,10 @@ pub fn parse_function(spec: &FunctionSpec) -> Result<DafnyFunction> {
     // Build return specification.
     let returns = DafnyReturn {
         dafny_type: spec.returns.return_type.clone(),
-        ensures: postconditions.iter().map(|p| p.expression.clone()).collect(),
+        ensures: postconditions
+            .iter()
+            .map(|p| p.expression.clone())
+            .collect(),
     };
 
     Ok(DafnyFunction {
@@ -127,7 +130,13 @@ pub fn parse_target(target_str: &str) -> Result<TargetLanguage> {
 fn sanitise_identifier(name: &str) -> String {
     let cleaned: String = name
         .chars()
-        .map(|c| if c.is_alphanumeric() || c == '_' { c } else { '_' })
+        .map(|c| {
+            if c.is_alphanumeric() || c == '_' {
+                c
+            } else {
+                '_'
+            }
+        })
         .collect();
     let trimmed = cleaned.trim_matches('_').to_string();
     if trimmed.is_empty() {
@@ -174,9 +183,9 @@ fn detect_helpers(func: &DafnyFunction, helpers: &mut Vec<String>) {
                 if i < bytes.len() && bytes[i] == b'(' {
                     // Skip built-in Dafny keywords and common operators.
                     let builtins = [
-                        "result", "old", "fresh", "forall", "exists", "var", "if", "then",
-                        "else", "true", "false", "null", "this", "seq", "set", "map",
-                        "multiset", "array", "int", "nat", "real", "bool", "string",
+                        "result", "old", "fresh", "forall", "exists", "var", "if", "then", "else",
+                        "true", "false", "null", "this", "seq", "set", "map", "multiset", "array",
+                        "int", "nat", "real", "bool", "string",
                     ];
                     if !builtins.contains(&ident) && !helpers.contains(&ident.to_string()) {
                         helpers.push(ident.to_string());
@@ -237,7 +246,11 @@ mod tests {
         let spec = sample_spec();
         let func = parse_function(&spec).unwrap();
         assert_eq!(func.postconditions.len(), 1);
-        assert!(func.postconditions[0].expression.contains("arr[result] == key"));
+        assert!(
+            func.postconditions[0]
+                .expression
+                .contains("arr[result] == key")
+        );
     }
 
     #[test]

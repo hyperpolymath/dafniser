@@ -47,9 +47,7 @@ pub fn generate_all(manifest: &Manifest, output_dir: &str) -> Result<()> {
          {}\n\n\
          # Compile to target language ({}):\n\
          {}\n",
-        verify_cmd,
-        target,
-        build_cmd,
+        verify_cmd, target, build_cmd,
     );
     fs::write(&commands_path, &commands_content)
         .with_context(|| format!("Failed to write {}", commands_path.display()))?;
@@ -66,8 +64,14 @@ pub fn build(manifest: &Manifest, _release: bool) -> Result<()> {
         "Build plan for '{}' -> target {}:",
         manifest.project.name, target
     );
-    println!("  1. dafny verify <file>.dfy --verification-time-limit {}", manifest.dafny.verify_timeout);
-    println!("  2. dafny build <file>.dfy --target {}", target.dafny_target_flag());
+    println!(
+        "  1. dafny verify <file>.dfy --verification-time-limit {}",
+        manifest.dafny.verify_timeout
+    );
+    println!(
+        "  2. dafny build <file>.dfy --target {}",
+        target.dafny_target_flag()
+    );
     println!("  (Run `dafniser generate` first, then execute commands.sh)");
     Ok(())
 }
@@ -80,6 +84,9 @@ pub fn run(manifest: &Manifest, _args: &[String]) -> Result<()> {
         manifest.project.name, target
     );
     println!("  Execute the compiled output from `dafny build`.");
-    println!("  (Ensure Dafny runtime is available for target {}.)", target);
+    println!(
+        "  (Ensure Dafny runtime is available for target {}.)",
+        target
+    );
     Ok(())
 }

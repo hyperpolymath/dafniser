@@ -60,22 +60,18 @@ fn generate_helper_predicate(name: &str) -> String {
              \x20 }\n"
                 .to_string()
         }
-        "positive" => {
-            "  // Helper predicate: checks all elements are strictly positive.\n\
+        "positive" => "  // Helper predicate: checks all elements are strictly positive.\n\
              \x20 predicate positive(s: seq<int>)\n\
              \x20 {\n\
              \x20   forall i :: 0 <= i < |s| ==> s[i] > 0\n\
              \x20 }\n"
-                .to_string()
-        }
-        "non_negative" => {
-            "  // Helper predicate: checks all elements are non-negative.\n\
+            .to_string(),
+        "non_negative" => "  // Helper predicate: checks all elements are non-negative.\n\
              \x20 predicate non_negative(s: seq<int>)\n\
              \x20 {\n\
              \x20   forall i :: 0 <= i < |s| ==> s[i] >= 0\n\
              \x20 }\n"
-                .to_string()
-        }
+            .to_string(),
         other => {
             format!(
                 "  // Helper predicate: {} (auto-detected, needs manual definition).\n\
@@ -120,10 +116,7 @@ fn generate_method(func: &DafnyFunction) -> String {
         .collect::<Vec<_>>()
         .join(", ");
 
-    out.push_str(&format!(
-        "  {} {}({})\n",
-        keyword, func.name, params_str
-    ));
+    out.push_str(&format!("  {} {}({})\n", keyword, func.name, params_str));
 
     // Return type.
     out.push_str(&format!(
