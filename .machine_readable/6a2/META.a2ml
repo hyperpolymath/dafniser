@@ -1,56 +1,27 @@
-;; SPDX-License-Identifier: PMPL-1.0-or-later
-;; Copyright (c) 2026 Jonathan D.A. Jewell (hyperpolymath) <j.d.a.jewell@open.ac.uk>
-;; META.a2ml — Meta-level information for dafniser
+# SPDX-License-Identifier: PMPL-1.0-or-later
+# Copyright (c) 2026 Jonathan D.A. Jewell (hyperpolymath) <j.d.a.jewell@open.ac.uk>
+#
+# META.a2ml — Dafniser meta-level information
+[metadata]
+version = "0.1.0"
+last-updated = "2026-03-21"
 
-(meta
-  (version "0.1.0")
-  (last-updated "2026-03-21")
+[project-info]
+license = "PMPL-1.0-or-later"
+author = "Jonathan D.A. Jewell (hyperpolymath)"
 
-  (architecture-decisions
-    (adr "001-iser-pattern"
-      (status "accepted")
-      (context "Need to make Dafny verification accessible without requiring users to learn Dafny syntax")
-      (decision "Use manifest-driven code generation: user describes WHAT (pre/postconditions), dafniser generates HOW (Dafny source with verification annotations)")
-      (consequences "Users write zero Dafny; all complexity in the -iser; specs are TOML, not Dafny"))
+[architecture-decisions]
+decisions = [
+  # No ADRs recorded
+]
 
-    (adr "002-abi-ffi-standard"
-      (status "accepted")
-      (context "Need verified interop between Rust CLI, Dafny compiler, Z3, and user code")
-      (decision "Idris2 ABI for formal proofs of spec consistency; Zig FFI for C-ABI bridge to Dafny compilation and verification pipeline")
-      (consequences "Compile-time correctness guarantees for specs; zero runtime overhead from proofs"))
+[development-practices]
+versioning = "SemVer"
+documentation = "AsciiDoc"
+build-tool = "just"
 
-    (adr "003-dafny-verification-pipeline"
-      (status "accepted")
-      (context "Dafny uses Z3 SMT solver for automatic verification of requires/ensures/invariant/decreases")
-      (decision "Pipeline: parse TOML -> Idris2 meta-proofs -> generate .dfy -> invoke Dafny+Z3 -> parse results -> compile target")
-      (consequences "Verification failures map back to TOML locations; counterexamples shown in user terms, not Dafny terms"))
-
-    (adr "004-multi-target-compilation"
-      (status "accepted")
-      (context "Dafny compiles to C#, Java, Go, Python, JavaScript — users want verified code in their ecosystem")
-      (decision "Support all 5 Dafny targets; Zig FFI bridge wraps compiled output for C-ABI integration")
-      (consequences "One spec, five verified outputs; FFI bridge needed per target runtime"))
-
-    (adr "005-rsr-template"
-      (status "accepted")
-      (context "Need consistent project structure across 29+ -iser repos")
-      (decision "All repos cloned from rsr-template-repo with full CI/CD and governance")
-      (consequences "17 workflows, SECURITY.md, CONTRIBUTING, bot directives from day one")))
-
-  (development-practices
-    (language "Rust" (purpose "CLI, manifest parsing, orchestration"))
-    (language "Idris2" (purpose "ABI formal proofs — spec consistency, termination, ghost scoping"))
-    (language "Zig" (purpose "FFI C-ABI bridge to Dafny compiler and Z3"))
-    (language "Dafny" (purpose "Generated verification-aware code (never hand-written)"))
-    (build-tool "cargo")
-    (ci "GitHub Actions (17 workflows)"))
-
-  (design-rationale
-    (principle "Manifest-driven"
-      (explanation "User intent captured in TOML — pre/postconditions, invariants, ghost variables, lemma hints; all generation is deterministic and reproducible"))
-    (principle "Formally verified bridges"
-      (explanation "Idris2 dependent types prove spec consistency at compile time — no contradictory requires/ensures, well-founded decreases, ghost variables stay ghost"))
-    (principle "Zero Dafny exposure"
-      (explanation "Users never write or read Dafny — the -iser handles all Dafny syntax, Z3 interaction, and target compilation"))
-    (principle "Counterexample-driven feedback"
-      (explanation "When Z3 finds a violation, dafniser maps the counterexample back to the TOML spec location with a concrete witness value"))))
+[maintenance-axes]
+scoping-first = true
+axis-1 = "must > intend > like"
+axis-2 = "corrective > adaptive > perfective"
+axis-3 = "systems > compliance > effects"

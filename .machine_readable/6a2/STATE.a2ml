@@ -1,41 +1,40 @@
-;; SPDX-License-Identifier: PMPL-1.0-or-later
-;; Copyright (c) 2026 Jonathan D.A. Jewell (hyperpolymath) <j.d.a.jewell@open.ac.uk>
-;; STATE.a2ml — Current project state for dafniser
+# SPDX-License-Identifier: PMPL-1.0-or-later
+# Copyright (c) 2026 Jonathan D.A. Jewell (hyperpolymath) <j.d.a.jewell@open.ac.uk>
+#
+# STATE.a2ml — Dafniser project state
+[metadata]
+project = "dafniser"
+version = "0.1.0"
+last-updated = "2026-03-21"
+status = "active"
+session = "converted from scheme — 2026-04-11"
 
-(state
-  (metadata
-    (version "0.1.0")
-    (last-updated "2026-03-21")
-    (author "Jonathan D.A. Jewell"))
+[project-context]
+name = "Dafniser"
+purpose = """Generate correct-by-construction code for critical functions using Dafny verification and Z3 SMT solving"""
+completion-percentage = 45
 
-  (project-context
-    (name "dafniser")
-    (description "Generate correct-by-construction code for critical functions using Dafny verification and Z3 SMT solving")
-    (status "alpha")
-    (priority "medium")
-    (ecosystem "-iser family (https://github.com/hyperpolymath/iseriser)"))
+[position]
+phase = "phase-1-complete"   # design | implementation | testing | maintenance | archived
+maturity = "experimental"  # experimental | alpha | beta | production | lts
 
-  (current-position
-    (phase "phase-1-complete")
-    (completion-percentage 45)
-    (milestone "Phase 1 complete — spec parser, Dafny codegen, Z3 integration")
-    (what-changed
-      "2026-03-21: Phase 1 complete. Spec parser, Dafny codegen with annotations, Z3 compiler integration, multi-target stubs, bespoke manifest parsing. Integration tests passing."))
+[route-to-mvp]
+milestones = [
+  # No milestones recorded
+]
 
-  (route-to-mvp
-    (step 1 "DONE — Spec parser for requires/ensures/invariant/decreases/ghost")
-    (step 2 "DONE — Dafny codegen with verification annotations")
-    (step 3 "DONE — Z3 verification compiler integration")
-    (step 4 "DONE — Multi-target compilation stubs (C#/Java/Go/Python/JS)")
-    (step 5 "DONE — Bespoke manifest parsing and CLI")
-    (step 6 "TODO — End-to-end verified sorting algorithm example")
-    (step 7 "TODO — Idris2 meta-proofs for spec consistency and termination")
-    (step 8 "TODO — PanLL panel and BoJ cartridge integration"))
+[blockers-and-issues]
+issues = [
+  "Dafny/Z3 not installed on dev machine — generated code verified by structure",
+]
 
-  (blockers-and-issues
-    (note "Dafny/Z3 not installed on dev machine — generated code verified by structure"))
+[critical-next-actions]
+actions = [
+  "End-to-end test: verified sorting algorithm with Dafny",
+  "Write Idris2 meta-proofs for spec consistency",
+  "Add more verification targets (binary search, balanced tree)",
+]
 
-  (critical-next-actions
-    (action "End-to-end test: verified sorting algorithm with Dafny")
-    (action "Write Idris2 meta-proofs for spec consistency")
-    (action "Add more verification targets (binary search, balanced tree)")))
+[maintenance-status]
+last-run-utc = "2026-03-21T00:00:00Z"
+last-result = "unknown"  # unknown | pass | warn | fail
