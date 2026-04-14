@@ -2,6 +2,8 @@
 # dafniser — Generate correct-by-construction code using Dafny
 
 # Default: build and test
+import? "contractile.just"
+
 default: build test
 
 # Build release binary
