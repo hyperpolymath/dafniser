@@ -236,7 +236,7 @@ mod tests {
     #[test]
     fn test_parse_function_preconditions() {
         let spec = sample_spec();
-        let func = parse_function(&spec).unwrap();
+        let func = parse_function(&spec).expect("TODO: handle error");
         assert_eq!(func.preconditions.len(), 1);
         assert_eq!(func.preconditions[0].expression, "sorted(arr)");
     }
@@ -244,7 +244,7 @@ mod tests {
     #[test]
     fn test_parse_function_postconditions() {
         let spec = sample_spec();
-        let func = parse_function(&spec).unwrap();
+        let func = parse_function(&spec).expect("TODO: handle error");
         assert_eq!(func.postconditions.len(), 1);
         assert!(
             func.postconditions[0]
@@ -256,21 +256,21 @@ mod tests {
     #[test]
     fn test_parse_function_decreases() {
         let spec = sample_spec();
-        let func = parse_function(&spec).unwrap();
+        let func = parse_function(&spec).expect("TODO: handle error");
         assert!(func.decreases.is_some());
-        assert_eq!(func.decreases.unwrap().expression, "arr.Length");
+        assert_eq!(func.decreases.expect("TODO: handle error").expression, "arr.Length");
     }
 
     #[test]
     fn test_parse_target_all_valid() {
-        assert_eq!(parse_target("csharp").unwrap(), TargetLanguage::CSharp);
-        assert_eq!(parse_target("cs").unwrap(), TargetLanguage::CSharp);
-        assert_eq!(parse_target("java").unwrap(), TargetLanguage::Java);
-        assert_eq!(parse_target("go").unwrap(), TargetLanguage::Go);
-        assert_eq!(parse_target("python").unwrap(), TargetLanguage::Python);
-        assert_eq!(parse_target("py").unwrap(), TargetLanguage::Python);
-        assert_eq!(parse_target("js").unwrap(), TargetLanguage::Js);
-        assert_eq!(parse_target("javascript").unwrap(), TargetLanguage::Js);
+        assert_eq!(parse_target("csharp").expect("TODO: handle error"), TargetLanguage::CSharp);
+        assert_eq!(parse_target("cs").expect("TODO: handle error"), TargetLanguage::CSharp);
+        assert_eq!(parse_target("java").expect("TODO: handle error"), TargetLanguage::Java);
+        assert_eq!(parse_target("go").expect("TODO: handle error"), TargetLanguage::Go);
+        assert_eq!(parse_target("python").expect("TODO: handle error"), TargetLanguage::Python);
+        assert_eq!(parse_target("py").expect("TODO: handle error"), TargetLanguage::Python);
+        assert_eq!(parse_target("js").expect("TODO: handle error"), TargetLanguage::Js);
+        assert_eq!(parse_target("javascript").expect("TODO: handle error"), TargetLanguage::Js);
     }
 
     #[test]
@@ -289,7 +289,7 @@ mod tests {
     #[test]
     fn test_detect_sorted_helper() {
         let spec = sample_spec();
-        let func = parse_function(&spec).unwrap();
+        let func = parse_function(&spec).expect("TODO: handle error");
         let mut helpers = Vec::new();
         detect_helpers(&func, &mut helpers);
         assert!(helpers.contains(&"sorted".to_string()));
@@ -298,7 +298,7 @@ mod tests {
     #[test]
     fn test_binary_search_spec() {
         let spec = sample_spec();
-        let func = parse_function(&spec).unwrap();
+        let func = parse_function(&spec).expect("TODO: handle error");
         assert_eq!(func.name, "binary_search");
         assert_eq!(func.params.len(), 2);
         assert_eq!(func.params[0].dafny_type, "seq<int>");
