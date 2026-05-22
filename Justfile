@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: PMPL-1.0-or-later
+# SPDX-License-Identifier: MPL-2.0
 # dafniser — Generate correct-by-construction code using Dafny
 
 # Default: build and test
@@ -122,7 +122,7 @@ tour:
     echo "  Dafniser — Guided Tour"
     echo "═══════════════════════════════════════════════════"
     echo ""
-    echo '// SPDX-License-Identifier: PMPL-1.0-or-later'
+    echo '// SPDX-License-Identifier: MPL-2.0'
     echo ""
     echo "Key directories:"
     echo "  src/                      Source code" 

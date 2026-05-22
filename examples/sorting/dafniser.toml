@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: PMPL-1.0-or-later
+# SPDX-License-Identifier: MPL-2.0
 # dafniser manifest — sorting example
 #
 # Defines binary_search and insertion_sort with full Dafny contracts.

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: PMPL-1.0-or-later
+// SPDX-License-Identifier: MPL-2.0
 // Copyright (c) 2026 Jonathan D.A. Jewell <j.d.a.jewell@open.ac.uk>
 //
 // Manifest parser for dafniser.toml.
@@ -178,7 +178,7 @@ pub fn init_manifest(path: &str) -> Result<()> {
     if manifest_path.exists() {
         anyhow::bail!("dafniser.toml already exists");
     }
-    let template = r#"# SPDX-License-Identifier: PMPL-1.0-or-later
+    let template = r#"# SPDX-License-Identifier: MPL-2.0
 # dafniser manifest — Dafny verified code generation
 
 [project]
