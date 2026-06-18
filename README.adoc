@@ -5,6 +5,8 @@ Jonathan D.A. Jewell <j.d.a.jewell@open.ac.uk>
 :toc: left
 :icons: font
 
+image:https://img.shields.io/badge/Sponsor-%E2%9D%A4-pink?logo=github[Sponsor,link=https://github.com/sponsors/hyperpolymath]
+
 == What Is This?
 
 Dafniser generates **correct-by-construction code** for critical functions
