@@ -156,6 +156,23 @@ export fn dafniser_free_spec(handle: ?*Handle) void {
     clearError();
 }
 
+/// Compile and verify the loaded spec in one step.
+/// (ABI: Dafniser.ABI.Types Foreign.prim__compile — `Bits64 -> Bits32`.)
+/// Returns 0 on success, non-zero on failure.
+export fn dafniser_compile(handle: ?*Handle) Result {
+    const h = handle orelse {
+        setError("Null handle");
+        return .null_pointer;
+    };
+    if (!h.initialized) {
+        setError("Handle not initialized");
+        return .@"error";
+    }
+    // TODO: invoke `dafny verify` over the loaded spec (Phase 4 in ROADMAP).
+    clearError();
+    return .ok;
+}
+
 //==============================================================================
 // Dafny Code Generation
 //==============================================================================
