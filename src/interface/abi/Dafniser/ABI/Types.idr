@@ -20,6 +20,7 @@ module Dafniser.ABI.Types
 import Data.Bits
 import Data.So
 import Data.Vect
+import Decidable.Equality
 
 %default total
 
@@ -35,10 +36,7 @@ data Platform = Linux | Windows | MacOS | BSD | WASM
 ||| This will be set during compilation based on target
 public export
 thisPlatform : Platform
-thisPlatform =
-  %runElab do
-    -- Platform detection logic
-    pure Linux  -- Default, override with compiler flags
+thisPlatform = Linux  -- Default; override with compiler flags / build config
 
 --------------------------------------------------------------------------------
 -- Core Result Types
@@ -76,7 +74,26 @@ DecEq Result where
   decEq InvalidParam InvalidParam = Yes Refl
   decEq OutOfMemory OutOfMemory = Yes Refl
   decEq NullPointer NullPointer = Yes Refl
-  decEq _ _ = No absurd
+  decEq Ok Error = No (\case Refl impossible)
+  decEq Ok InvalidParam = No (\case Refl impossible)
+  decEq Ok OutOfMemory = No (\case Refl impossible)
+  decEq Ok NullPointer = No (\case Refl impossible)
+  decEq Error Ok = No (\case Refl impossible)
+  decEq Error InvalidParam = No (\case Refl impossible)
+  decEq Error OutOfMemory = No (\case Refl impossible)
+  decEq Error NullPointer = No (\case Refl impossible)
+  decEq InvalidParam Ok = No (\case Refl impossible)
+  decEq InvalidParam Error = No (\case Refl impossible)
+  decEq InvalidParam OutOfMemory = No (\case Refl impossible)
+  decEq InvalidParam NullPointer = No (\case Refl impossible)
+  decEq OutOfMemory Ok = No (\case Refl impossible)
+  decEq OutOfMemory Error = No (\case Refl impossible)
+  decEq OutOfMemory InvalidParam = No (\case Refl impossible)
+  decEq OutOfMemory NullPointer = No (\case Refl impossible)
+  decEq NullPointer Ok = No (\case Refl impossible)
+  decEq NullPointer Error = No (\case Refl impossible)
+  decEq NullPointer InvalidParam = No (\case Refl impossible)
+  decEq NullPointer OutOfMemory = No (\case Refl impossible)
 
 --------------------------------------------------------------------------------
 -- Opaque Handles
@@ -92,8 +109,10 @@ data Handle : Type where
 ||| Returns Nothing if pointer is null
 public export
 createHandle : Bits64 -> Maybe Handle
-createHandle 0 = Nothing
-createHandle ptr = Just (MkHandle ptr)
+createHandle ptr =
+  case choose (ptr /= 0) of
+    Left ok => Just (MkHandle ptr {nonNull = ok})
+    Right _ => Nothing
 
 ||| Extract pointer value from handle
 public export
@@ -229,7 +248,26 @@ DecEq DafnyTarget where
   decEq Go Go = Yes Refl
   decEq Python Python = Yes Refl
   decEq JavaScript JavaScript = Yes Refl
-  decEq _ _ = No absurd
+  decEq CSharp Java = No (\case Refl impossible)
+  decEq CSharp Go = No (\case Refl impossible)
+  decEq CSharp Python = No (\case Refl impossible)
+  decEq CSharp JavaScript = No (\case Refl impossible)
+  decEq Java CSharp = No (\case Refl impossible)
+  decEq Java Go = No (\case Refl impossible)
+  decEq Java Python = No (\case Refl impossible)
+  decEq Java JavaScript = No (\case Refl impossible)
+  decEq Go CSharp = No (\case Refl impossible)
+  decEq Go Java = No (\case Refl impossible)
+  decEq Go Python = No (\case Refl impossible)
+  decEq Go JavaScript = No (\case Refl impossible)
+  decEq Python CSharp = No (\case Refl impossible)
+  decEq Python Java = No (\case Refl impossible)
+  decEq Python Go = No (\case Refl impossible)
+  decEq Python JavaScript = No (\case Refl impossible)
+  decEq JavaScript CSharp = No (\case Refl impossible)
+  decEq JavaScript Java = No (\case Refl impossible)
+  decEq JavaScript Go = No (\case Refl impossible)
+  decEq JavaScript Python = No (\case Refl impossible)
 
 --------------------------------------------------------------------------------
 -- Specification Tree
@@ -245,7 +283,7 @@ record FunctionSpec where
   ||| Return type (Dafny syntax)
   returnType : String
   ||| Parameter names and types (Dafny syntax)
-  parameters : List (String, String)
+  params : List (String, String)
   ||| Preconditions (`requires` clauses)
   preconditions : List Precondition
   ||| Postconditions (`ensures` clauses)
@@ -306,44 +344,59 @@ ptrSize MacOS = 64
 ptrSize BSD = 64
 ptrSize WASM = 32
 
-||| Pointer type for platform
+||| Pointer-sized integer type for a platform.
+||| (Idris2 cannot match on `Type` to recover a width, so this is a plain
+||| dispatch on the platform rather than a `Bits (ptrSize p)` application,
+||| which is ill-typed — `Bits` is an interface, not a width-indexed type.)
 public export
-CPtr : Platform -> Type -> Type
-CPtr p _ = Bits (ptrSize p)
+CPtr : Platform -> Type
+CPtr Linux   = Bits64
+CPtr Windows = Bits64
+CPtr MacOS   = Bits64
+CPtr BSD     = Bits64
+CPtr WASM    = Bits32
 
 --------------------------------------------------------------------------------
--- Memory Layout Proofs
+-- Memory Layout (scalar size / alignment)
 --------------------------------------------------------------------------------
 
-||| Proof that a type has a specific size
+||| The C scalar kinds whose size/alignment this ABI reasons about.
+||| Using an explicit tag (rather than pattern-matching on `Type`, which Idris2
+||| forbids for type-level functions) keeps `cSizeOf`/`cAlignOf` total and sound.
 public export
-data HasSize : Type -> Nat -> Type where
-  SizeProof : {0 t : Type} -> {n : Nat} -> HasSize t n
+data CScalar : Type where
+  ||| C `int` (platform-dependent, 32-bit on every supported target)
+  ScInt : CScalar
+  ||| C `size_t` (pointer-width)
+  ScSize : CScalar
+  ||| Fixed 32-bit word
+  ScBits32 : CScalar
+  ||| Fixed 64-bit word
+  ScBits64 : CScalar
+  ||| IEEE-754 double
+  ScDouble : CScalar
+  ||| Raw pointer (pointer-width)
+  ScPtr : CScalar
 
-||| Proof that a type has a specific alignment
+||| Size in bytes of a C scalar on a given platform.
 public export
-data HasAlignment : Type -> Nat -> Type where
-  AlignProof : {0 t : Type} -> {n : Nat} -> HasAlignment t n
+cSizeOf : (p : Platform) -> CScalar -> Nat
+cSizeOf _ ScInt    = 4
+cSizeOf p ScSize   = ptrSize p `div` 8
+cSizeOf _ ScBits32 = 4
+cSizeOf _ ScBits64 = 8
+cSizeOf _ ScDouble = 8
+cSizeOf p ScPtr    = ptrSize p `div` 8
 
-||| Size of C types (platform-specific)
+||| Alignment in bytes of a C scalar on a given platform.
 public export
-cSizeOf : (p : Platform) -> (t : Type) -> Nat
-cSizeOf p (CInt _) = 4
-cSizeOf p (CSize _) = if ptrSize p == 64 then 8 else 4
-cSizeOf p Bits32 = 4
-cSizeOf p Bits64 = 8
-cSizeOf p Double = 8
-cSizeOf p _ = ptrSize p `div` 8
-
-||| Alignment of C types (platform-specific)
-public export
-cAlignOf : (p : Platform) -> (t : Type) -> Nat
-cAlignOf p (CInt _) = 4
-cAlignOf p (CSize _) = if ptrSize p == 64 then 8 else 4
-cAlignOf p Bits32 = 4
-cAlignOf p Bits64 = 8
-cAlignOf p Double = 8
-cAlignOf p _ = ptrSize p `div` 8
+cAlignOf : (p : Platform) -> CScalar -> Nat
+cAlignOf _ ScInt    = 4
+cAlignOf p ScSize   = ptrSize p `div` 8
+cAlignOf _ ScBits32 = 4
+cAlignOf _ ScBits64 = 8
+cAlignOf _ ScDouble = 8
+cAlignOf p ScPtr    = ptrSize p `div` 8
 
 --------------------------------------------------------------------------------
 -- FFI Declarations (bridging to Zig)

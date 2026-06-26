@@ -1,0 +1,9 @@
+-- SPDX-License-Identifier: MPL-2.0
+package dafniser-abi
+
+sourcedir = "."
+
+modules = Dafniser.ABI.Types,
+          Dafniser.ABI.Layout,
+          Dafniser.ABI.Foreign,
+          Dafniser.ABI.Proofs
