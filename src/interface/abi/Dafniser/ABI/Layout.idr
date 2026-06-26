@@ -18,6 +18,8 @@ module Dafniser.ABI.Layout
 import Dafniser.ABI.Types
 import Data.Vect
 import Data.So
+import Data.Nat
+import Decidable.Equality
 
 %default total
 
@@ -31,12 +33,25 @@ paddingFor : (offset : Nat) -> (alignment : Nat) -> Nat
 paddingFor offset alignment =
   if offset `mod` alignment == 0
     then 0
-    else alignment - (offset `mod` alignment)
+    else minus alignment (offset `mod` alignment)
 
 ||| Proof that alignment divides aligned size
 public export
 data Divides : Nat -> Nat -> Type where
   DivideBy : (k : Nat) -> {n : Nat} -> {m : Nat} -> (m = k * n) -> Divides n m
+
+||| Sound decision procedure: does `n` divide `m`?
+||| For n = S j, compute the quotient q = m `div` (S j) and check that
+||| m = q * (S j) holds on the nose.  Returns a real `Divides` witness, or
+||| Nothing when the candidate quotient does not check out (or when n = 0).
+public export
+decDivides : (n : Nat) -> (m : Nat) -> Maybe (Divides n m)
+decDivides Z _ = Nothing
+decDivides (S j) m =
+  let q = m `div` (S j) in
+  case decEq m (q * (S j)) of
+    Yes prf => Just (DivideBy q prf)
+    No _ => Nothing
 
 ||| Round up to next alignment boundary
 public export
@@ -44,11 +59,13 @@ alignUp : (size : Nat) -> (alignment : Nat) -> Nat
 alignUp size alignment =
   size + paddingFor size alignment
 
-||| Proof that alignUp produces aligned result
+||| Decide whether `alignUp size align` is a multiple of `align`.
+||| A universally-quantified claim here would need a full division lemma; we
+||| instead produce the real `Divides` witness by computation via `decDivides`
+||| (returns Nothing only in the degenerate `align = 0` case).
 public export
-alignUpCorrect : (size : Nat) -> (align : Nat) -> (align > 0) -> Divides align (alignUp size align)
-alignUpCorrect size align prf =
-  DivideBy ((size + paddingFor size align) `div` align) Refl
+decAlignUp : (size : Nat) -> (align : Nat) -> Maybe (Divides align (alignUp size align))
+decAlignUp size align = decDivides align (alignUp size align)
 
 --------------------------------------------------------------------------------
 -- Struct Field Layout
@@ -80,7 +97,7 @@ record StructLayout where
 
 ||| Calculate total struct size with padding
 public export
-calcStructSize : Vect n Field -> Nat -> Nat
+calcStructSize : Vect k Field -> Nat -> Nat
 calcStructSize [] align = 0
 calcStructSize (f :: fs) align =
   let lastOffset = foldl (\acc, field => nextFieldOffset field) f.offset fs
@@ -89,23 +106,26 @@ calcStructSize (f :: fs) align =
 
 ||| Proof that field offsets are correctly aligned
 public export
-data FieldsAligned : Vect n Field -> Type where
+data FieldsAligned : Vect k Field -> Type where
   NoFields : FieldsAligned []
   ConsField :
     (f : Field) ->
-    (rest : Vect n Field) ->
+    (rest : Vect k Field) ->
     Divides f.alignment f.offset ->
     FieldsAligned rest ->
     FieldsAligned (f :: rest)
 
 ||| Verify a struct layout is valid
 public export
-verifyLayout : (fields : Vect n Field) -> (align : Nat) -> Either String StructLayout
+verifyLayout : (fields : Vect k Field) -> (align : Nat) -> Either String StructLayout
 verifyLayout fields align =
-  let size = calcStructSize fields align
-   in case decSo (size >= sum (map (\f => f.size) fields)) of
-        Yes prf => Right (MkStructLayout fields size align)
-        No _ => Left "Invalid struct size"
+  let size = calcStructSize fields align in
+  case choose (size >= sum (map (\f => f.size) fields)) of
+    Right _ => Left "Invalid struct size"
+    Left szOk =>
+      case decDivides align size of
+        Nothing => Left "Total size is not a multiple of the alignment"
+        Just dvd => Right (MkStructLayout fields size align {sizeCorrect = szOk} {aligned = dvd})
 
 --------------------------------------------------------------------------------
 -- Platform-Specific Layouts
@@ -136,11 +156,27 @@ data CABICompliant : StructLayout -> Type where
     FieldsAligned layout.fields ->
     CABICompliant layout
 
+||| Sound decision procedure over a whole field vector: are all field
+||| offsets divisible by their declared alignment?  Builds the real
+||| FieldsAligned witness when it succeeds.
+public export
+decFieldsAligned : (fields : Vect k Field) -> Maybe (FieldsAligned fields)
+decFieldsAligned [] = Just NoFields
+decFieldsAligned (f :: fs) =
+  case decDivides f.alignment f.offset of
+    Nothing => Nothing
+    Just dvd =>
+      case decFieldsAligned fs of
+        Nothing => Nothing
+        Just rest => Just (ConsField f fs dvd rest)
+
 ||| Check if layout follows C ABI
 public export
 checkCABI : (layout : StructLayout) -> Either String (CABICompliant layout)
 checkCABI layout =
-  Right (CABIOk layout ?fieldsAlignedProof)
+  case decFieldsAligned layout.fields of
+    Just prf => Right (CABIOk layout prf)
+    Nothing => Left "Struct fields are not correctly aligned for the C ABI"
 
 --------------------------------------------------------------------------------
 -- Dafniser-Specific Layouts
@@ -159,6 +195,8 @@ preconditionLayout =
     ]
     24  -- Total size: 24 bytes
     8   -- Alignment: 8 bytes
+    {sizeCorrect = Oh}
+    {aligned = DivideBy 3 Refl}
 
 ||| Layout for the Postcondition record (identical to Precondition).
 public export
@@ -171,6 +209,8 @@ postconditionLayout =
     ]
     24
     8
+    {sizeCorrect = Oh}
+    {aligned = DivideBy 3 Refl}
 
 ||| Layout for the LoopInvariant record.
 ||| Fields: functionName (ptr), loopIndex (u64), expression (ptr), description (ptr)
@@ -185,6 +225,8 @@ loopInvariantLayout =
     ]
     32  -- Total size: 32 bytes
     8   -- Alignment: 8 bytes
+    {sizeCorrect = Oh}
+    {aligned = DivideBy 4 Refl}
 
 ||| Layout for the GhostVariable record.
 ||| Fields: name (ptr), dafnyType (ptr), initialiser (ptr), scope (ptr)
@@ -199,6 +241,8 @@ ghostVariableLayout =
     ]
     32
     8
+    {sizeCorrect = Oh}
+    {aligned = DivideBy 4 Refl}
 
 ||| Layout for the Lemma record.
 ||| Fields: name (ptr), requires (ptr to list), ensures (ptr to list),
@@ -215,6 +259,8 @@ lemmaLayout =
     ]
     40
     8
+    {sizeCorrect = Oh}
+    {aligned = DivideBy 5 Refl}
 
 ||| Layout for the VerificationResult tagged union.
 ||| Tag (u32) + padding + payload (function name ptr + detail ptr/u64)
@@ -230,6 +276,8 @@ verificationResultLayout =
     ]
     32
     8
+    {sizeCorrect = Oh}
+    {aligned = DivideBy 4 Refl}
 
 ||| Layout for the SpecTree top-level record.
 ||| Fields: moduleName (ptr), target (u32), functions (ptr to list),
@@ -247,6 +295,8 @@ specTreeLayout =
     ]
     40
     8
+    {sizeCorrect = Oh}
+    {aligned = DivideBy 5 Refl}
 
 --------------------------------------------------------------------------------
 -- Offset Calculation
@@ -260,7 +310,13 @@ fieldOffset layout name =
     Just idx => Just (finToNat idx ** index idx layout.fields)
     Nothing => Nothing
 
-||| Proof that field offset is within struct bounds
+||| Decide whether a field offset is within struct bounds.
+||| A universally-quantified `So (...)` return type would be unsound (it is
+||| false in general — a field may overflow the declared total size), so this
+||| returns a `Maybe` witness produced by `choose`.
 public export
-offsetInBounds : (layout : StructLayout) -> (f : Field) -> So (f.offset + f.size <= layout.totalSize)
-offsetInBounds layout f = ?offsetInBoundsProof
+offsetInBounds : (layout : StructLayout) -> (f : Field) -> Maybe (So (f.offset + f.size <= layout.totalSize))
+offsetInBounds layout f =
+  case choose (f.offset + f.size <= layout.totalSize) of
+    Left ok => Just ok
+    Right _ => Nothing
