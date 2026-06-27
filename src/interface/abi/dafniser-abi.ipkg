@@ -6,4 +6,5 @@ sourcedir = "."
 modules = Dafniser.ABI.Types,
           Dafniser.ABI.Layout,
           Dafniser.ABI.Foreign,
-          Dafniser.ABI.Proofs
+          Dafniser.ABI.Proofs,
+          Dafniser.ABI.Semantics
