@@ -258,19 +258,46 @@ mod tests {
         let spec = sample_spec();
         let func = parse_function(&spec).expect("TODO: handle error");
         assert!(func.decreases.is_some());
-        assert_eq!(func.decreases.expect("TODO: handle error").expression, "arr.Length");
+        assert_eq!(
+            func.decreases.expect("TODO: handle error").expression,
+            "arr.Length"
+        );
     }
 
     #[test]
     fn test_parse_target_all_valid() {
-        assert_eq!(parse_target("csharp").expect("TODO: handle error"), TargetLanguage::CSharp);
-        assert_eq!(parse_target("cs").expect("TODO: handle error"), TargetLanguage::CSharp);
-        assert_eq!(parse_target("java").expect("TODO: handle error"), TargetLanguage::Java);
-        assert_eq!(parse_target("go").expect("TODO: handle error"), TargetLanguage::Go);
-        assert_eq!(parse_target("python").expect("TODO: handle error"), TargetLanguage::Python);
-        assert_eq!(parse_target("py").expect("TODO: handle error"), TargetLanguage::Python);
-        assert_eq!(parse_target("js").expect("TODO: handle error"), TargetLanguage::Js);
-        assert_eq!(parse_target("javascript").expect("TODO: handle error"), TargetLanguage::Js);
+        assert_eq!(
+            parse_target("csharp").expect("TODO: handle error"),
+            TargetLanguage::CSharp
+        );
+        assert_eq!(
+            parse_target("cs").expect("TODO: handle error"),
+            TargetLanguage::CSharp
+        );
+        assert_eq!(
+            parse_target("java").expect("TODO: handle error"),
+            TargetLanguage::Java
+        );
+        assert_eq!(
+            parse_target("go").expect("TODO: handle error"),
+            TargetLanguage::Go
+        );
+        assert_eq!(
+            parse_target("python").expect("TODO: handle error"),
+            TargetLanguage::Python
+        );
+        assert_eq!(
+            parse_target("py").expect("TODO: handle error"),
+            TargetLanguage::Python
+        );
+        assert_eq!(
+            parse_target("js").expect("TODO: handle error"),
+            TargetLanguage::Js
+        );
+        assert_eq!(
+            parse_target("javascript").expect("TODO: handle error"),
+            TargetLanguage::Js
+        );
     }
 
     #[test]
