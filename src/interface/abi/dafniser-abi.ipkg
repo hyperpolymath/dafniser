@@ -9,4 +9,5 @@ modules = Dafniser.ABI.Types,
           Dafniser.ABI.Proofs,
           Dafniser.ABI.Semantics,
           Dafniser.ABI.Invariants,
-          Dafniser.ABI.FfiSeam
+          Dafniser.ABI.FfiSeam,
+          Dafniser.ABI.Capstone
