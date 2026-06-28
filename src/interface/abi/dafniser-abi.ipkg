@@ -8,4 +8,5 @@ modules = Dafniser.ABI.Types,
           Dafniser.ABI.Foreign,
           Dafniser.ABI.Proofs,
           Dafniser.ABI.Semantics,
-          Dafniser.ABI.Invariants
+          Dafniser.ABI.Invariants,
+          Dafniser.ABI.FfiSeam
