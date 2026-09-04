@@ -12,7 +12,7 @@
 * [x] Idris2 ABI module stubs (Types, Layout, Foreign)
 * [x] Zig FFI bridge stubs with build.zig
 * [x] README with architecture overview
-* [x] Machine-readable metadata (6a2 files)
+* [x] Machine-readable metadata (descriptiles)
 
 == Phase 1: Specification Parser
 * [ ] Define `dafniser.toml` schema for function specs (pre/postconditions, invariants)
