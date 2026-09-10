@@ -53,18 +53,11 @@ jobs:
           # scanner's stderr into the JSON payload, so every jq parse failed,
           # every count silently became 0 via `|| echo 0`, and "Fail on critical
           # findings" could never fire on any input. Keep stderr on the log.
-          if [ ! -s panic-attack-findings.json ]; then
-            echo "[]" > panic-attack-findings.json
-          fi
-
-          # Deliberately a WARNING, not a failure. panic-attack is a downloaded
-          # release binary whose exit-code and output contract are not verified
-          # here, and it has no confirmed --exit-zero equivalent, so we surface a
-          # malformed payload in the log rather than block on an unverified tool.
-          # Promote to `exit 1` (as the Hypatia job does) once that contract is
-          # confirmed -- see the follow-up issue linked from this PR.
-          if ! jq -e 'type == "array"' panic-attack-findings.json >/dev/null 2>&1; then
-            echo "::warning::panic-attack output is not a JSON array (exit ${PA_EXIT}); counts below are unreliable"
+          # A malformed report cannot stand in for a clean scan. Keep the
+          # original payload for diagnosis and fail before publishing counts.
+          if [ ! -s panic-attack-findings.json ] || ! jq -e 'type == "array"' panic-attack-findings.json >/dev/null; then
+            echo "::error::panic-attack output is not a JSON array (exit ${PA_EXIT})"
+            exit 1
           fi
 
           # Parse finding counts
@@ -150,9 +143,11 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Verify scanner failure controls
+        run: ruby tests/ci/static_analysis_gate_test.rb
+
       - name: Setup Elixir for Hypatia scanner
         id: beam
-        continue-on-error: true
         uses: erlef/setup-beam@54075bcc5e249e4758d363f27d099f55d843f124 # v1.18.2
         with:
           elixir-version: '1.19.4'
@@ -160,27 +155,21 @@ jobs:
 
       - name: Clone and build Hypatia
         id: build
-        continue-on-error: true
         run: |
-          git clone https://github.com/hyperpolymath/hypatia.git "$HOME/hypatia" 2>/dev/null || true
-          if [ -f "$HOME/hypatia/mix.exs" ]; then
-            cd "$HOME/hypatia"
-            if [ ! -f hypatia ] && [ ! -f hypatia-v2 ]; then
-              mix deps.get
-              mix escript.build
-            fi
-            echo "ready=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "::notice::Hypatia scanner not available — skipping scan"
-            echo "ready=false" >> "$GITHUB_OUTPUT"
-          fi
+          git clone https://github.com/hyperpolymath/hypatia.git "$RUNNER_TEMP/hypatia"
+          cd "$RUNNER_TEMP/hypatia"
+          test -f mix.exs
+          mix deps.get
+          mix escript.build
+          test -x hypatia-cli.sh
+          echo "ready=true" >> "$GITHUB_OUTPUT"
 
       - name: Run Hypatia scan
         id: scan
         if: steps.build.outputs.ready == 'true'
         run: |
           set +e
-          HYPATIA_FORMAT=json "$HOME/hypatia/hypatia-cli.sh" scan . --exit-zero > hypatia-findings.json
+          HYPATIA_FORMAT=json "$RUNNER_TEMP/hypatia/hypatia-cli.sh" scan . --exit-zero > hypatia-findings.json
           HYP_EXIT=$?
           set -e
 
@@ -250,14 +239,6 @@ jobs:
           | **Total**| ${{ steps.scan.outputs.total }} |
           EOF
 
-      - name: Create stub findings (when Hypatia unavailable)
-        if: steps.build.outputs.ready != 'true'
-        run: |
-          echo "[]" > hypatia-findings.json
-          echo "## Hypatia Scan" >> "$GITHUB_STEP_SUMMARY"
-          echo "" >> "$GITHUB_STEP_SUMMARY"
-          echo "Skipped: Hypatia scanner not available in this environment." >> "$GITHUB_STEP_SUMMARY"
-
       - name: Upload hypatia findings
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
@@ -301,8 +282,9 @@ jobs:
 
           # Ensure both files exist and are valid JSON arrays
           for f in "$PA_FILE" "$HYP_FILE"; do
-            if [ ! -s "$f" ] || ! jq empty "$f" 2>/dev/null; then
-              echo "[]" > "$f"
+            if [ ! -s "$f" ] || ! jq -e 'type == "array"' "$f" >/dev/null; then
+              echo "::error::$f is missing or is not a JSON findings array"
+              exit 1
             fi
           done
 

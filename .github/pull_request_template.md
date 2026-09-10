@@ -18,7 +18,7 @@
 - [ ] Tests pass (`just test` or equivalent)
 - [ ] Code is formatted (`just fmt` or equivalent)
 - [ ] Linter is clean (no new warnings or errors)
-- [ ] No banned language patterns (no TypeScript, no npm/bun, no Go/Python)
+- [ ] No banned language patterns (no TypeScript, no Go/Python; Bun is the JavaScript runtime)
 - [ ] No `unsafe` blocks without `// SAFETY:` comments
 - [ ] No banned functions (`believe_me`, `unsafeCoerce`, `Obj.magic`, `Admitted`, `sorry`)
 - [ ] SPDX license headers present on all new/modified source files
@@ -26,8 +26,8 @@
 
 ### As Applicable
 
-- [ ] `.machine_readable/STATE.a2ml` updated (if project state changed)
-- [ ] `.machine_readable/ECOSYSTEM.a2ml` updated (if integrations changed)
+- [ ] `.machine_readable/descriptiles/STATE.a2ml` updated (if project state changed)
+- [ ] `.machine_readable/descriptiles/ECOSYSTEM.a2ml` updated (if integrations changed)
 - [ ] `.machine_readable/descriptiles/META.a2ml` updated (if architectural decisions changed)
 - [ ] Documentation updated for user-facing changes
 - [ ] `TOPOLOGY.md` updated (if architecture changed)
