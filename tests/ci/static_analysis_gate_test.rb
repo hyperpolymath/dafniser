@@ -11,7 +11,7 @@ build = step.call('hypatia-scan', 'Clone and build Hypatia')
 Dir.mktmpdir('scanner-gate-') do |dir|
   bin = File.join(dir, 'bin')
   FileUtils.mkdir_p(bin)
-  File.write(File.join(bin, 'panic-attack'), "#!/bin/bash\nprintf '%s' \"$REPORT\"\n")
+  File.write(File.join(bin, 'panic-attack'), "#!/bin/bash\nprintf '%s' \"$REPORT\"\nprintf '%s\\n' 'scanner diagnostic' >&2\n")
   File.write(File.join(bin, 'git'), <<~SH)
     #!/bin/bash
     test "$FAIL_STAGE" != clone || exit 71
@@ -36,6 +36,10 @@ Dir.mktmpdir('scanner-gate-') do |dir|
     log, result = Open3.capture2e(env.merge('REPORT' => report), 'bash', '-e', '-o', 'pipefail', '-c', assail, chdir: dir)
     abort "invalid payload accepted: #{report}\n#{log}" if result.success?
   end
+  contaminated = assail.sub('> panic-attack-findings.json', '> panic-attack-findings.json 2>&1')
+  abort 'stderr redirection control did not match the workflow' if contaminated == assail
+  log, result = Open3.capture2e(env.merge('REPORT' => '[]'), 'bash', '-e', '-o', 'pipefail', '-c', contaminated, chdir: dir)
+  abort "stderr contamination was accepted: #{log}" if result.success?
   ['', 'clone', 'deps.get', 'escript.build'].each do |stage|
     FileUtils.rm_rf(File.join(dir, 'hypatia'))
     File.write(output, '')
