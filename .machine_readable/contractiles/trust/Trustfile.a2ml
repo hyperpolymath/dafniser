@@ -11,8 +11,8 @@ is traceable.
 ## Secrets
 
 ### no-secrets-committed
-- description: No credential files in repo
-- run: test ! -f .env && test ! -f credentials.json && test ! -f .env.local && test ! -f .env.production
+- description: No .env or credential files tracked by Git
+- run: test -z "$(git ls-files -- .env '.env.*' credentials.json)"
 - severity: critical
 
 ### no-private-keys

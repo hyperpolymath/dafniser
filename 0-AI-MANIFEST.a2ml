@@ -23,7 +23,7 @@ Part of the hyperpolymath -iser family (https://github.com/hyperpolymath/iserise
 
 ### Machine-Readable Metadata: `.machine_readable/` ONLY
 
-These 6 a2ml files MUST exist in `.machine_readable/6a2/` directory ONLY:
+These 6 a2ml files MUST exist in `.machine_readable/descriptiles/` directory ONLY:
 1. **STATE.a2ml** - Project state, progress, blockers
 2. **META.a2ml** - Architecture decisions, governance
 3. **ECOSYSTEM.a2ml** - Position in ecosystem, relationships
@@ -111,7 +111,7 @@ dafniser/
 ├── docs/
 │   └── architecture/
 │       └── TOPOLOGY.md         # Module topology and data flow diagram
-└── .machine_readable/          # ALL machine-readable metadata (6a2/ subdirectory)
+└── .machine_readable/          # ALL machine-readable metadata (descriptiles/ subdirectory)
 ```
 
 ## CORE INVARIANTS
@@ -131,7 +131,7 @@ dafniser/
 
 1. Read THIS file (0-AI-MANIFEST.a2ml) first
 2. Understand canonical location: `.machine_readable/`
-3. Read `.machine_readable/6a2/STATE.a2ml` for current project state
+3. Read `.machine_readable/descriptiles/STATE.a2ml` for current project state
 4. State understanding of canonical locations
 
 ## ATTESTATION PROOF

@@ -13,14 +13,14 @@ method = "ci-triggered"
 target = "binary"  # Rust CLI binary; Zig FFI shared library
 
 [incident-response]
-# 1. Check .machine_readable/6a2/STATE.a2ml for current status
+# 1. Check .machine_readable/descriptiles/STATE.a2ml for current status
 # 2. Review recent commits and CI results
 # 3. Run `just validate` to check compliance
 # 4. Run `just security` to audit for vulnerabilities
 # 5. If Dafny verification is failing, check Z3 version compatibility
 
 [release-process]
-# 1. Update version in STATE.a2ml, META.a2ml, Cargo.toml, Justfile
+# 1. Update version in .machine_readable/descriptiles/STATE.a2ml, .machine_readable/descriptiles/META.a2ml, Cargo.toml, Justfile
 # 2. Run `just release-preflight` (validate + quality + security + maint-hard-pass)
 # 3. Optional local permission hardening: `just perms-snapshot && just perms-lock`
 # 4. Tag and push
