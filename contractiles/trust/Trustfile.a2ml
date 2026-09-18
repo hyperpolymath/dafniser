@@ -20,6 +20,6 @@ Maximal trust by default — LLM may read, build, test, lint, format.
 - severity: critical
 
 ### no-secrets-committed
-- description: No .env or credential files in repo
-- run: test ! -f .env && test ! -f credentials.json && test ! -f .env.local
+- description: No .env or credential files tracked by Git
+- run: test -z "$(git ls-files -- .env '.env.*' credentials.json)"
 - severity: critical

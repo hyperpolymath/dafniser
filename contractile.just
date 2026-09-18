@@ -64,9 +64,9 @@ trust-verify: trust-license-content trust-no-secrets-committed trust-container-i
 trust-license-content:
     grep -q 'SPDX\|License\|MIT\|Apache\|PMPL\|MPL' LICENSE
 
-# No .env or credential files in repo
+# No .env or credential files tracked by Git
 trust-no-secrets-committed:
-    test ! -f .env && test ! -f credentials.json && test ! -f .env.local
+    test -z "$(git ls-files -- .env '.env.*' credentials.json)"
 
 # Containerfile base images use pinned digests
 trust-container-images-pinned:
